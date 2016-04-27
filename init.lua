@@ -97,15 +97,14 @@ local function disentomb(obj, reset)
 
 		local ent = obj:get_luaentity()
 		local w = in_walkable(p)
-		local brace = math.floor(p.y) + 0.800001
+		local brace = math.floor(p.y - 0.5) + 0.800001
 
 		if ent.is_entombed then
-			local p2 = p
 			if w then
-				p2 = {x = p.x, y = brace + 1, z = p.z}
-				obj:setpos(p2)
+				p = {x = p.x, y = brace + 1, z = p.z}
+				obj:setpos(p)
 			end
-			ent.is_entombed = in_walkable(p2)
+			ent.is_entombed = in_walkable(p)
 		elseif w and not (reset and quick_escape(ent,p)) then
 			obj:setpos({x = p.x, y = brace, z = p.z})
 			ent.is_entombed = true
