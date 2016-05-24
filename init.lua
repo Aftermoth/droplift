@@ -89,6 +89,7 @@ local function escape(ent,pos)
 			for c = pos[o.c] + bias[o.c], pos[o.c] - bias[o.c], -bias[o.c] do
 				p = {[o.a]=a, [o.b]=b, [o.c]=c}
 				if not obstructed(p) then
+					ent.object:setacceleration({x=0,y=-10,z=0})
 					ent.object:setpos(p)
 					return p
 				end
