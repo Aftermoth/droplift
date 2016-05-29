@@ -21,17 +21,6 @@ droplift = {
 
 --------------------------------------------------- Local
 
--- minetest.get_us_time is not defined in 0.4.10
-local seconds = 0.0
-if not minetest.get_us_time then
-	minetest.register_globalstep(function(dtime)
-				seconds = seconds + dtime
-			end)
-	minetest.get_us_time = function()
-		return seconds * 1000000
-	end
-end
-
 local function obstructed(p)
 	local n = minetest.get_node_or_nil(p)
 	return n and minetest.registered_nodes[n.name].walkable
@@ -40,64 +29,32 @@ end
 
 -- * Local escape *
 
-local function near_player(dpos)
-	local near = 8.5
-	local pp, d, ppos
-	for _,player in ipairs(minetest.get_connected_players()) do
-		pp = player:getpos()
-		pp.y = pp.y + 1
-		d = math.abs(pp.x-dpos.x) + math.abs(pp.y-dpos.y) + math.abs(pp.z-dpos.z)
-		if d < near then
-			near = d
-			ppos = pp
-		end
-	end
-	return ( near < 8.5 and ppos )
-end
-
-local function usign(r)
-	return ( r < 0 and -1 ) or 1
+local dist = function(p1,p2)
+	return (  (p1.y - p2.y)^2
+			+ (p1.x - p2.x)^2
+			+ (p1.z - p2.z)^2 )^0.5
 end
 
 local function escape(ent,pos)
-	local bias = {x = 1, y = 1, z = 1}
-	local o = {a="x", b="y", c="z"}
-	local pref = near_player(pos)
-	if pref then
-		bias = {x = usign(pref.x - pos.x), y = usign(pref.y - pos.y), z = usign(pref.z - pos.z)}
-		local mag={x = math.abs(pref.x - pos.x), y = math.abs(pref.y - pos.y), z = math.abs(pref.z - pos.z)}
-		if mag.z > mag.y then
-			if mag.y > mag.x then
-				o={a="z",b="y",c="x"}
-			elseif mag.z > mag.x then
-				o={a="z",b="x",c="y"}
-			else
-				o={a="x",b="z",c="y"}
-			end
-		else
-			if mag.z > mag.x then
-				o={a="y",b="z",c="x"}
-			elseif mag.y > mag.x then
-				o={a="y",b="x",c="z"}
-			end
-		end
+	local q, p, ep, d, dd = pos
+	for _,player in ipairs(minetest.get_connected_players()) do
+		p = player:getpos(); p.y = p.y + 1
+		d = dist(p,pos)
+		if not dd or (d < dd) then dd, q = d, {x=p.x,y=p.y,z=p.z} end
 	end
-
-	local p
-	for a = pos[o.a] + bias[o.a], pos[o.a] - bias[o.a], -bias[o.a] do
-		for b = pos[o.b] + bias[o.b], pos[o.b] - bias[o.b], -bias[o.b] do
-			for c = pos[o.c] + bias[o.c], pos[o.c] - bias[o.c], -bias[o.c] do
-				p = {[o.a]=a, [o.b]=b, [o.c]=c}
+	for x = pos.x - 1, pos.x + 1 do
+		p.x = x; for y = pos.y - 1, pos.y + 1 do
+			p.y = y; for z = pos.z - 1, pos.z + 1 do
+				p.z = z
 				if not obstructed(p) then
-					ent.object:setacceleration({x=0,y=-10,z=0})
-					ent.object:setpos(p)
-					return p
+					d = dist(q,p)
+					if not ep or (d < dd) then dd, ep = d, {x=p.x,y=p.y,z=p.z} end
 				end
 			end
 		end
 	end
-
-	return false
+	if ep then ent.object:setpos(ep) end
+	return ep
 end
 
 
@@ -114,35 +71,30 @@ local function lift(obj)
 			local t = 1
 			local s1 = ent.sync1
 			if s1 then
-				local sd = ent.sync0+s1-minetest.get_us_time()
-				if sd > 0 then t = sd/1000000 end
+				local sd = ent.sync0+s1-os.time()
+				if sd > 0 then t = sd end
 				ent.sync0, ent.sync1 = nil, nil
 			end
 -- Space
 			p = {x = p.x, y = math.floor(p.y - 0.5) + 1.800001, z = p.z}
 			obj:setpos(p)
 			if s1 or obstructed(p) then
-				obj:setvelocity({x = 0, y = 0, z = 0})
-				obj:setacceleration({x = 0, y = 0, z = 0})
 				minetest.after(t, lift, obj)
 				return
 			end
-		end -- if w
+		end
 -- Void.
 		ent.is_entombed, ent.sync0, ent.sync1 = nil, nil, nil
-	end  -- if p
+	end
 end
 
 -- ---------------- ASYNC
 
-local counter = function()
-	local k = 0
-	return function()
-				k = (k==9973 and 1) or k+1
-				return k
-			end
+local k = 0
+local function newhash()
+	k = (k==32767 and 1) or k+1
+	return k
 end
-local newhash = counter()
 
 local function async(obj, usync)
 	local p = obj:getpos()
@@ -157,28 +109,25 @@ local function async(obj, usync)
 					ent.hash = nil
 				end
 			elseif usync > 0 then
-				ent.sync0 = minetest.get_us_time()
+				ent.sync0 = os.time()
 				ent.sync1 = usync
 			end
 -- Space.
 			if hash == ent.hash then
 				obj:setpos({x = p.x, y = math.floor(p.y - 0.5) + 0.800001, z = p.z})
-				obj:setvelocity({x = 0, y = 0, z = 0})
-				obj:setacceleration({x = 0, y = 0, z = 0})
 				if not ent.is_entombed then
 					ent.is_entombed = true
 					minetest.after(1, lift, obj)
 				end
 			end
-		end -- if w
+		end
 		if hash == ent.hash then ent.hash = nil end
-	end  -- if p
+	end
 end
 
 droplift.invoke = function(obj, sync)
-	async(obj, (sync and math.max(0,sync)*1000000))
+	async(obj, (sync and math.max(0,sync)))
 end
-
 
 -- * Events *
 
@@ -192,10 +141,11 @@ local function append_to_core_defns()
 		if staticdata ~= "" then 
 			if minetest.deserialize(staticdata).is_entombed then
 				ent.is_entombed = true
+				ent.object:setacceleration({x = 0, y = 0, z = 0})  -- Prevents 0.18m reload slippage. Not critical.
 				minetest.after(0.1, lift, ent.object)
 			end
 		end
-		ent.object:setvelocity({x = 0, y = 0, z = 0})
+		ent.object:setvelocity({x = 0, y = 0, z = 0})  -- Prevents resting-buried drops burrowing. 
 	end
 
 	-- Preserve state across reloads
