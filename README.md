@@ -1,6 +1,6 @@
 Minetest mod: droplift
 
-                ** May 1 -- Major changes -- Update strongly recommended **
+                ** May 29 -- Major changes -- Update strongly recommended **
 
 ==== Droplift ====
 
