@@ -1,7 +1,5 @@
 Minetest mod: droplift
 
-                ** May 29 -- Major changes -- Update strongly recommended **
-
 ==== Droplift ====
 
 Droplift lifts drops out of solid blocks.
