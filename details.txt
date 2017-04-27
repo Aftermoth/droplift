@@ -7,7 +7,7 @@ Lift physics holds a drop for one second before moving it upwards by one node ev
 Droplift does not distinguish between differently shaped node boxes, only what their 'walkable' setting is.
 This makes it easy to manually entomb drops using simple node types like slabs and glass panes.
 
-Entombed/free status is preserved across game reloads rather than retested. For example, a drop resting on a slab will remain at rest, althoguh technically inside an obstructing node.
+Entombed/free status is preserved across game reloads rather than retested. For example, a drop resting on a slab will remain at rest, although technically inside an obstructing node.
 
 ALL drop velocities are zeroed on reload. This prevents resting-buried drops from burrowing below their current floor as they do in the default game. This only affects mods, as it's not possible to manually produce this condition under droplift.
 
